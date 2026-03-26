@@ -10,13 +10,11 @@
 
 An HTML-based app providing exceptionally precise quality control for coffee roasting, targeting premium roasters working with grand cru beans. The app focuses on what Cropster and lighter tools still do less well: collaborative workflows, remote calibration, bias reduction, decision support, client-facing sharing, and cross-session insight extraction.
 
-### Core Value Proposition
+### Core Objective
 
-- Reduce costly quality mistakes on expensive specialty coffees
-- Align sensory panels across people, sites, and time
-- Speed up release/hold decisions with consensus-driven QC
-- Bridge the gap between roast curve data and sensory outcomes
-- Provide structured, shareable reporting for internal and external stakeholders
+**Improve cup quality** by correlating roast curve data with human sensory evaluation. The app helps roasters understand which roasting decisions produce which sensory outcomes — on the same coffee, torréfié differently.
+
+The core loop: **Roast → Cup → Compare → Understand → Progress**
 
 ### Target Users
 
@@ -28,7 +26,7 @@ An HTML-based app providing exceptionally precise quality control for coffee roa
 
 - **Frontend:** HTML/CSS/JavaScript (single-page app, browser-based)
 - **Approach:** HTML-first app — lightweight, portable, no heavy framework dependency initially
-- **Integration:** Cropster API for roast curve sync and quality data linking
+- **Integration:** Cropster CSV export import (file-based, no API)
 - **Sensory Standards:** SCA/CVA-compatible scoring forms
 
 ## Key Features (MVP Scope)
@@ -61,13 +59,45 @@ An HTML-based app providing exceptionally precise quality control for coffee roa
 
 ```
 Socky1/
-├── CLAUDE.md          # AI assistant guidelines (this file)
-├── README.md          # Project overview for contributors
-├── .gitignore         # Ignored files and directories
-└── (app files TBD)
+├── index.html              # Main SPA shell — all views defined here
+├── css/
+│   └── app.css             # Complete styling (dark coffee theme, responsive)
+├── js/
+│   ├── store.js            # LocalStorage persistence layer (coffees, roasts, cuppings)
+│   ├── curve-parser.js     # Cropster CSV parser (auto-detects delimiters & columns)
+│   ├── cupping-form.js     # SCA cupping protocol — scoring logic & form bindings
+│   ├── charts.js           # Chart.js wrappers (curves, radar, bars, trends)
+│   ├── analysis.js         # Correlation engine — Pearson, conclusions, comparisons
+│   └── app.js              # Main controller — routing, views, CRUD, event bindings
+├── data/
+│   └── sample-cropster-export.csv  # Test data for development
+├── CLAUDE.md               # AI assistant guidelines (this file)
+├── README.md               # Project overview
+└── .gitignore
 ```
 
-> Update this section as the project structure evolves.
+### Architecture
+
+- **SPA with hash routing** — All views in `index.html`, switched via `#hash`
+- **No build step** — Open `index.html` directly in a browser
+- **LocalStorage persistence** — All data stored client-side in JSON
+- **Chart.js 4.x via CDN** — Only external dependency
+- **IIFE modules** — Each JS file exposes a single global (`Store`, `CurveParser`, etc.)
+
+### Data Model
+
+```
+Coffee  1 ──── * Roast  1 ──── * Cupping
+  │                │                │
+  name             coffeeId         roastId
+  origin           date             date
+  variety          curveData{}      scores{}
+  process          chargeTemp       totalScore
+  altitude         fcTime/fcTemp    descriptors{}
+  producer         dropTime/dropTemp  cupper
+                   devTime/dtr      notes
+                   weightLoss
+```
 
 ## Development Setup
 

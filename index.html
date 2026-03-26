@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socky1 — Intelligence Sensorielle</title>
+  <link rel="stylesheet" href="css/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <nav id="main-nav">
+    <div class="nav-brand">
+      <h1>Socky<span class="accent">1</span></h1>
+      <span class="nav-tagline">Intelligence Sensorielle</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="#dashboard" class="nav-link active" data-view="dashboard">Tableau de bord</a></li>
+      <li><a href="#coffees" class="nav-link" data-view="coffees">Mes Cafés</a></li>
+      <li><a href="#roasts" class="nav-link" data-view="roasts">Torréfactions</a></li>
+      <li><a href="#cupping" class="nav-link" data-view="cupping">Cupping</a></li>
+      <li><a href="#analysis" class="nav-link" data-view="analysis">Analyse</a></li>
+    </ul>
+  </nav>
+
+  <main id="app">
+    <!-- ===== DASHBOARD ===== -->
+    <section id="view-dashboard" class="view active">
+      <div class="view-header">
+        <h2>Tableau de bord</h2>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="stat-coffees">0</span>
+          <span class="stat-label">Cafés</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-roasts">0</span>
+          <span class="stat-label">Torréfactions</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-cuppings">0</span>
+          <span class="stat-label">Cuppings</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="stat-avg-score">—</span>
+          <span class="stat-label">Score moyen</span>
+        </div>
+      </div>
+      <div class="dashboard-panels">
+        <div class="panel">
+          <h3>Derniers cuppings</h3>
+          <div id="recent-cuppings-list" class="panel-content">
+            <p class="empty-state">Aucun cupping enregistré. Commencez par ajouter un café, importer une courbe, puis cupper.</p>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Progression récente</h3>
+          <div id="recent-progress-chart" class="panel-content">
+            <canvas id="dashboard-score-chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== MES CAFÉS ===== -->
+    <section id="view-coffees" class="view">
+      <div class="view-header">
+        <h2>Mes Cafés</h2>
+        <button class="btn btn-primary" id="btn-add-coffee">+ Nouveau café</button>
+      </div>
+      <div id="coffees-list" class="cards-grid">
+        <p class="empty-state">Aucun café enregistré.</p>
+      </div>
+
+      <!-- Modal ajout café -->
+      <div id="modal-coffee" class="modal hidden">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="modal-coffee-title">Nouveau café</h3>
+            <button class="btn-close" id="btn-close-coffee">&times;</button>
+          </div>
+          <form id="form-coffee">
+            <input type="hidden" id="coffee-id">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="coffee-name">Nom *</label>
+                <input type="text" id="coffee-name" required placeholder="Ex: Yirgacheffe Konga">
+              </div>
+              <div class="form-group">
+                <label for="coffee-origin">Origine *</label>
+                <input type="text" id="coffee-origin" required placeholder="Ex: Éthiopie, Sidamo">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="coffee-variety">Variété</label>
+                <input type="text" id="coffee-variety" placeholder="Ex: Heirloom, SL28">
+              </div>
+              <div class="form-group">
+                <label for="coffee-process">Process</label>
+                <select id="coffee-process">
+                  <option value="">— Sélectionner —</option>
+                  <option value="washed">Lavé (Washed)</option>
+                  <option value="natural">Nature (Natural)</option>
+                  <option value="honey">Honey</option>
+                  <option value="anaerobic">Anaérobie</option>
+                  <option value="other">Autre</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="coffee-altitude">Altitude (m)</label>
+                <input type="number" id="coffee-altitude" placeholder="Ex: 1950">
+              </div>
+              <div class="form-group">
+                <label for="coffee-producer">Producteur / Ferme</label>
+                <input type="text" id="coffee-producer" placeholder="Ex: Finca El Paraiso">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="coffee-notes">Notes</label>
+              <textarea id="coffee-notes" rows="2" placeholder="Informations complémentaires..."></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" id="btn-cancel-coffee">Annuler</button>
+              <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== TORRÉFACTIONS ===== -->
+    <section id="view-roasts" class="view">
+      <div class="view-header">
+        <h2>Torréfactions</h2>
+        <button class="btn btn-primary" id="btn-add-roast">+ Nouvelle torréfaction</button>
+      </div>
+      <div id="roasts-list" class="cards-grid">
+        <p class="empty-state">Aucune torréfaction enregistrée.</p>
+      </div>
+
+      <!-- Modal ajout torréfaction -->
+      <div id="modal-roast" class="modal hidden">
+        <div class="modal-content modal-large">
+          <div class="modal-header">
+            <h3 id="modal-roast-title">Nouvelle torréfaction</h3>
+            <button class="btn-close" id="btn-close-roast">&times;</button>
+          </div>
+          <form id="form-roast">
+            <input type="hidden" id="roast-id">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="roast-coffee">Café *</label>
+                <select id="roast-coffee" required>
+                  <option value="">— Sélectionner un café —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="roast-date">Date *</label>
+                <input type="date" id="roast-date" required>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="roast-batch-size">Taille du batch (kg)</label>
+                <input type="number" id="roast-batch-size" step="0.1" placeholder="Ex: 12">
+              </div>
+              <div class="form-group">
+                <label for="roast-degree">Degré de torréfaction</label>
+                <select id="roast-degree">
+                  <option value="">— Sélectionner —</option>
+                  <option value="light">Light</option>
+                  <option value="medium-light">Medium-Light</option>
+                  <option value="medium">Medium</option>
+                  <option value="medium-dark">Medium-Dark</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </div>
+            </div>
+
+            <fieldset class="fieldset-params">
+              <legend>Paramètres clés</legend>
+              <div class="form-row form-row-4">
+                <div class="form-group">
+                  <label for="roast-charge-temp">Charge (°C)</label>
+                  <input type="number" id="roast-charge-temp" step="0.1" placeholder="200">
+                </div>
+                <div class="form-group">
+                  <label for="roast-turning-point">Turning Point (°C)</label>
+                  <input type="number" id="roast-turning-point" step="0.1" placeholder="95">
+                </div>
+                <div class="form-group">
+                  <label for="roast-fc-time">1er Crack (mm:ss)</label>
+                  <input type="text" id="roast-fc-time" placeholder="09:30">
+                </div>
+                <div class="form-group">
+                  <label for="roast-fc-temp">Temp 1er Crack (°C)</label>
+                  <input type="number" id="roast-fc-temp" step="0.1" placeholder="196">
+                </div>
+              </div>
+              <div class="form-row form-row-4">
+                <div class="form-group">
+                  <label for="roast-drop-time">Drop (mm:ss)</label>
+                  <input type="text" id="roast-drop-time" placeholder="11:30">
+                </div>
+                <div class="form-group">
+                  <label for="roast-drop-temp">Temp Drop (°C)</label>
+                  <input type="number" id="roast-drop-temp" step="0.1" placeholder="210">
+                </div>
+                <div class="form-group">
+                  <label for="roast-dev-time">Développement (mm:ss)</label>
+                  <input type="text" id="roast-dev-time" placeholder="02:00">
+                </div>
+                <div class="form-group">
+                  <label for="roast-dtr">DTR (%)</label>
+                  <input type="number" id="roast-dtr" step="0.1" placeholder="17.5">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="roast-weight-loss">Perte de poids (%)</label>
+                  <input type="number" id="roast-weight-loss" step="0.1" placeholder="13.5">
+                </div>
+                <div class="form-group">
+                  <label for="roast-total-time">Temps total (mm:ss)</label>
+                  <input type="text" id="roast-total-time" placeholder="11:30">
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset class="fieldset-curve">
+              <legend>Courbe Cropster</legend>
+              <div class="form-group">
+                <label for="roast-curve-file">Importer un fichier CSV Cropster</label>
+                <input type="file" id="roast-curve-file" accept=".csv,.txt">
+                <small class="form-hint">Export Cropster au format CSV (colonnes: Time, BT, ET, RoR)</small>
+              </div>
+              <div id="curve-preview" class="curve-preview hidden">
+                <canvas id="curve-preview-chart"></canvas>
+                <p class="curve-preview-info" id="curve-preview-info"></p>
+              </div>
+            </fieldset>
+
+            <div class="form-group">
+              <label for="roast-notes">Notes</label>
+              <textarea id="roast-notes" rows="2" placeholder="Observations sur cette torréfaction..."></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" id="btn-cancel-roast">Annuler</button>
+              <button type="submit" class="btn btn-primary">Enregistrer</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CUPPING ===== -->
+    <section id="view-cupping" class="view">
+      <div class="view-header">
+        <h2>Cupping</h2>
+        <button class="btn btn-primary" id="btn-new-cupping">+ Nouveau cupping</button>
+      </div>
+      <div id="cuppings-list" class="cards-grid">
+        <p class="empty-state">Aucun cupping enregistré.</p>
+      </div>
+
+      <!-- Modal cupping -->
+      <div id="modal-cupping" class="modal hidden">
+        <div class="modal-content modal-large">
+          <div class="modal-header">
+            <h3>Évaluation Sensorielle</h3>
+            <button class="btn-close" id="btn-close-cupping">&times;</button>
+          </div>
+          <form id="form-cupping">
+            <input type="hidden" id="cupping-id">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cupping-roast">Torréfaction *</label>
+                <select id="cupping-roast" required>
+                  <option value="">— Sélectionner —</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="cupping-date">Date</label>
+                <input type="date" id="cupping-date" required>
+              </div>
+              <div class="form-group">
+                <label for="cupping-cupper">Dégustateur</label>
+                <input type="text" id="cupping-cupper" placeholder="Votre nom">
+              </div>
+            </div>
+
+            <div class="cupping-grid">
+              <!-- Fragrance/Aroma -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Fragrance / Arôme</label>
+                  <output class="attribute-value" id="val-fragrance">0</output>
+                </div>
+                <input type="range" id="score-fragrance" min="6" max="10" step="0.25" value="6" class="score-slider">
+                <div class="slider-labels"><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+                <input type="text" class="descriptor-input" id="desc-fragrance" placeholder="Descripteurs: jasmin, citron, miel...">
+              </div>
+
+              <!-- Flavor -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Flavor</label>
+                  <output class="attribute-value" id="val-flavor">0</output>
+                </div>
+                <input type="range" id="score-flavor" min="6" max="10" step="0.25" value="6" class="score-slider">
+                <div class="slider-labels"><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+                <input type="text" class="descriptor-input" id="desc-flavor" placeholder="Descripteurs: fruits rouges, chocolat...">
+              </div>
+
+              <!-- Aftertaste -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Aftertaste</label>
+                  <output class="attribute-value" id="val-aftertaste">0</output>
+                </div>
+                <input type="range" id="score-aftertaste" min="6" max="10" step="0.25" value="6" class="score-slider">
+                <div class="slider-labels"><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+                <input type="text" class="descriptor-input" id="desc-aftertaste" placeholder="Descripteurs: long, net, épicé...">
+              </div>
+
+              <!-- Acidity -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Acidité</label>
+                  <output class="attribute-value" id="val-acidity">0</output>
+                </div>
+                <input type="range" id="score-acidity" min="6" max="10" step="0.25" value="6" class="score-slider">
+                <div class="slider-labels"><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+                <div class="form-row-inline">
+                  <label class="checkbox-label"><input type="checkbox" id="acidity-bright"> Vive</label>
+                  <label class="checkbox-label"><input type="checkbox" id="acidity-crisp"> Nette</label>
+                  <label class="checkbox-label"><input type="checkbox" id="acidity-flat"> Plate</label>
+                  <label class="checkbox-label"><input type="checkbox" id="acidity-sour"> Aigre</label>
+                </div>
+              </div>
+
+              <!-- Body -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Body</label>
+                  <output class="attribute-value" id="val-body">0</output>
+                </div>
+                <input type="range" id="score-body" min="6" max="10" step="0.25" value="6" class="score-slider">
+                <div class="slider-labels"><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+                <div class="form-row-inline">
+                  <label class="checkbox-label"><input type="checkbox" id="body-light"> Léger</label>
+                  <label class="checkbox-label"><input type="checkbox" id="body-medium"> Moyen</label>
+                  <label class="checkbox-label"><input type="checkbox" id="body-full"> Plein</label>
+                  <label class="checkbox-label"><input type="checkbox" id="body-creamy"> Crémeux</label>
+                </div>
+              </div>
+
+              <!-- Balance -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Balance</label>
+                  <output class="attribute-value" id="val-balance">0</output>
+                </div>
+                <input type="range" id="score-balance" min="6" max="10" step="0.25" value="6" class="score-slider">
+                <div class="slider-labels"><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+              </div>
+
+              <!-- Uniformity -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Uniformité</label>
+                  <output class="attribute-value" id="val-uniformity">10</output>
+                </div>
+                <div class="cup-checks">
+                  <label class="cup-check"><input type="checkbox" checked data-attr="uniformity" data-cup="1"> 1</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="uniformity" data-cup="2"> 2</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="uniformity" data-cup="3"> 3</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="uniformity" data-cup="4"> 4</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="uniformity" data-cup="5"> 5</label>
+                </div>
+              </div>
+
+              <!-- Clean Cup -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Clean Cup</label>
+                  <output class="attribute-value" id="val-clean_cup">10</output>
+                </div>
+                <div class="cup-checks">
+                  <label class="cup-check"><input type="checkbox" checked data-attr="clean_cup" data-cup="1"> 1</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="clean_cup" data-cup="2"> 2</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="clean_cup" data-cup="3"> 3</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="clean_cup" data-cup="4"> 4</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="clean_cup" data-cup="5"> 5</label>
+                </div>
+              </div>
+
+              <!-- Sweetness -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Sweetness</label>
+                  <output class="attribute-value" id="val-sweetness">10</output>
+                </div>
+                <div class="cup-checks">
+                  <label class="cup-check"><input type="checkbox" checked data-attr="sweetness" data-cup="1"> 1</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="sweetness" data-cup="2"> 2</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="sweetness" data-cup="3"> 3</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="sweetness" data-cup="4"> 4</label>
+                  <label class="cup-check"><input type="checkbox" checked data-attr="sweetness" data-cup="5"> 5</label>
+                </div>
+              </div>
+
+              <!-- Overall -->
+              <div class="cupping-attribute">
+                <div class="attribute-header">
+                  <label>Overall</label>
+                  <output class="attribute-value" id="val-overall">0</output>
+                </div>
+                <input type="range" id="score-overall" min="6" max="10" step="0.25" value="6" class="score-slider">
+                <div class="slider-labels"><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span></div>
+              </div>
+
+              <!-- Defects -->
+              <div class="cupping-attribute cupping-defects">
+                <div class="attribute-header">
+                  <label>Défauts</label>
+                  <output class="attribute-value defect-value" id="val-defects">0</output>
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="defect-taint-count">Taint (x2)</label>
+                    <input type="number" id="defect-taint-count" min="0" max="5" value="0">
+                  </div>
+                  <div class="form-group">
+                    <label for="defect-fault-count">Fault (x4)</label>
+                    <input type="number" id="defect-fault-count" min="0" max="5" value="0">
+                  </div>
+                </div>
+                <select id="defect-type" class="defect-select">
+                  <option value="">Type de défaut...</option>
+                  <option value="baked">Baked (sous-développé, plat)</option>
+                  <option value="underdeveloped">Underdeveloped (herbacé, céréale)</option>
+                  <option value="scorched">Scorched (brûlé en surface)</option>
+                  <option value="tipped">Tipped (pointes brûlées)</option>
+                  <option value="quaker">Quaker (grain immature)</option>
+                  <option value="ferment">Ferment (fermenté)</option>
+                  <option value="phenol">Phenol / Rio</option>
+                  <option value="other">Autre</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Score total -->
+            <div class="cupping-total">
+              <span class="total-label">Score Total</span>
+              <span class="total-value" id="cupping-total-score">72</span>
+              <span class="total-quality" id="cupping-quality-label">—</span>
+            </div>
+
+            <div class="form-group">
+              <label for="cupping-notes">Notes générales</label>
+              <textarea id="cupping-notes" rows="3" placeholder="Impressions générales, potentiel d'amélioration, observations..."></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" id="btn-cancel-cupping">Annuler</button>
+              <button type="submit" class="btn btn-primary">Enregistrer le cupping</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ANALYSE ===== -->
+    <section id="view-analysis" class="view">
+      <div class="view-header">
+        <h2>Analyse</h2>
+      </div>
+      <div class="analysis-controls">
+        <div class="form-group">
+          <label for="analysis-coffee">Café à analyser</label>
+          <select id="analysis-coffee">
+            <option value="">— Sélectionner un café —</option>
+          </select>
+        </div>
+      </div>
+      <div id="analysis-empty" class="empty-state">
+        <p>Sélectionnez un café pour comparer ses torréfactions et leurs résultats en tasse.</p>
+        <p><small>Il faut au moins 2 torréfactions cuppées du même café pour lancer une analyse.</small></p>
+      </div>
+      <div id="analysis-results" class="hidden">
+        <div class="analysis-grid">
+          <!-- Courbes superposées -->
+          <div class="analysis-panel panel-wide">
+            <h3>Courbes superposées</h3>
+            <canvas id="chart-curves-overlay"></canvas>
+          </div>
+
+          <!-- Radar sensoriel comparatif -->
+          <div class="analysis-panel">
+            <h3>Profil sensoriel comparé</h3>
+            <canvas id="chart-sensory-radar"></canvas>
+          </div>
+
+          <!-- Scores par torréfaction -->
+          <div class="analysis-panel">
+            <h3>Scores par torréfaction</h3>
+            <canvas id="chart-scores-bar"></canvas>
+          </div>
+
+          <!-- Corrélations clés -->
+          <div class="analysis-panel panel-wide">
+            <h3>Corrélations courbe → tasse</h3>
+            <div id="correlations-grid" class="correlations-grid"></div>
+          </div>
+
+          <!-- Tableau comparatif -->
+          <div class="analysis-panel panel-wide">
+            <h3>Tableau comparatif</h3>
+            <div class="table-scroll">
+              <table id="comparison-table" class="comparison-table">
+                <thead></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Conclusions -->
+          <div class="analysis-panel panel-wide">
+            <h3>Conclusions</h3>
+            <div id="analysis-conclusions" class="conclusions-content"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/store.js"></script>
+  <script src="js/curve-parser.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/cupping-form.js"></script>
+  <script src="js/analysis.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

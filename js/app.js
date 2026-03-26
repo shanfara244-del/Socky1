@@ -403,6 +403,7 @@ const App = (() => {
       }
     } else {
       document.getElementById('cupping-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('cupping-cupper').value = '';
       if (roastId) {
         document.getElementById('cupping-roast').value = roastId;
       }

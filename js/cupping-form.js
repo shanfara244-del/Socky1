@@ -95,9 +95,9 @@ const CuppingForm = (() => {
       scores[attr] = val;
     }
 
-    const taint = (parseInt(document.getElementById('defect-taint-count')?.value) || 0) * 2;
-    const fault = (parseInt(document.getElementById('defect-fault-count')?.value) || 0) * 4;
-    scores.defects = taint + fault;
+    scores.taintCount = parseInt(document.getElementById('defect-taint-count')?.value) || 0;
+    scores.faultCount = parseInt(document.getElementById('defect-fault-count')?.value) || 0;
+    scores.defects = (scores.taintCount * 2) + (scores.faultCount * 4);
 
     return scores;
   }
@@ -185,12 +185,10 @@ const CuppingForm = (() => {
       _updateCupScore(htmlId);
     }
 
-    const defects = scores.defects || 0;
     const taintInput = document.getElementById('defect-taint-count');
     const faultInput = document.getElementById('defect-fault-count');
-    // Best effort: assign to taint first
-    if (taintInput) taintInput.value = Math.floor(defects / 2);
-    if (faultInput) faultInput.value = 0;
+    if (taintInput) taintInput.value = scores.taintCount ?? 0;
+    if (faultInput) faultInput.value = scores.faultCount ?? 0;
 
     // Descriptors
     if (descriptors) {
@@ -232,11 +230,20 @@ const CuppingForm = (() => {
   function reset() {
     for (const attr of SLIDER_ATTRIBUTES) {
       const slider = document.getElementById(`score-${attr}`);
+      const output = document.getElementById(`val-${attr}`);
       if (slider) slider.value = 6;
+      if (output) output.textContent = '6.00';
     }
 
     const checks = document.querySelectorAll('.cup-check input[type="checkbox"]');
     checks.forEach(cb => { cb.checked = true; });
+
+    // Reset cup-check output displays
+    for (const attr of CUP_ATTRIBUTES) {
+      const htmlId = CUP_ATTR_IDS[attr];
+      const output = document.getElementById(`val-${htmlId}`);
+      if (output) output.textContent = '10';
+    }
 
     document.querySelectorAll('.descriptor-input').forEach(i => { i.value = ''; });
     document.querySelectorAll('.form-row-inline input[type="checkbox"]').forEach(cb => { cb.checked = false; });

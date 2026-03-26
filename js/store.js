@@ -190,6 +190,8 @@ const Store = (() => {
           dtr: roast.dtr,
           weightLoss: roast.weightLoss,
           totalTime: roast.totalTime,
+          agtronWhole: roast.agtronWhole,
+          agtronGround: roast.agtronGround,
         },
       });
     }

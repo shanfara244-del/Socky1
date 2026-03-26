@@ -197,6 +197,7 @@ const App = (() => {
         <div class="card-meta">
           ${params.map(p => `<span class="card-tag">${_esc(p)}</span>`).join('')}
           ${r.curveData ? '<span class="card-tag accent">Courbe</span>' : ''}
+          ${r.agtronWhole ? `<span class="card-tag">Agtron ${r.agtronWhole}/${r.agtronGround || '?'}</span>` : ''}
           <span class="card-tag">${cuppings.length} cupping${cuppings.length !== 1 ? 's' : ''}</span>
         </div>
         <div class="card-actions">
@@ -239,6 +240,8 @@ const App = (() => {
         document.getElementById('roast-dtr').value = _valOrEmpty(roast.dtr);
         document.getElementById('roast-weight-loss').value = _valOrEmpty(roast.weightLoss);
         document.getElementById('roast-total-time').value = _valOrEmpty(roast.totalTime);
+        document.getElementById('roast-agtron-whole').value = _valOrEmpty(roast.agtronWhole);
+        document.getElementById('roast-agtron-ground').value = _valOrEmpty(roast.agtronGround);
         document.getElementById('roast-notes').value = roast.notes || '';
 
         if (roast.curveData) {
@@ -274,6 +277,8 @@ const App = (() => {
       dtr: _numOrNull(document.getElementById('roast-dtr').value),
       weightLoss: _numOrNull(document.getElementById('roast-weight-loss').value),
       totalTime: document.getElementById('roast-total-time').value.trim() || null,
+      agtronWhole: _numOrNull(document.getElementById('roast-agtron-whole').value),
+      agtronGround: _numOrNull(document.getElementById('roast-agtron-ground').value),
       notes: document.getElementById('roast-notes').value.trim(),
       curveData: pendingCurveData,
     };

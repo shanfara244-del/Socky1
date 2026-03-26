@@ -230,5 +230,212 @@ const CurveParser = (() => {
     return isNaN(num) ? null : num;
   }
 
-  return { parse, formatTime, parseTimeStr };
+  /**
+   * Analyze a parsed curve: detect phases, events, RoR patterns
+   * @param {object} curveData - Output from parse()
+   * @param {object} roastParams - { fcTime, fcTemp, dropTime, dropTemp, chargeTemp, turningPoint }
+   * @returns {object} { phases, rorPatterns, events, warnings }
+   */
+  function analyzeCurve(curveData, roastParams) {
+    if (!curveData || !curveData.bt || curveData.bt.length < 10) {
+      return { phases: null, rorPatterns: [], events: {}, warnings: [] };
+    }
+
+    const { time, bt, ror } = curveData;
+    const warnings = [];
+    const events = _detectEvents(time, bt, roastParams);
+    const phases = _computePhases(time, bt, events);
+    const rorPatterns = _analyzeRoR(time, ror, events);
+
+    // Phase ratio warnings
+    if (phases) {
+      if (phases.dryingPct > 55) {
+        warnings.push({ type: 'negative', text: `Phase de séchage très longue (${phases.dryingPct.toFixed(0)}%). Risque de roast baked — les réactions de Maillard sont compressées.` });
+      }
+      if (phases.devPct < 15) {
+        warnings.push({ type: 'negative', text: `DTR très court (${phases.devPct.toFixed(0)}%). Probablement sous-développé — goût herbacé, acide aigre, astringent.` });
+      } else if (phases.devPct > 28) {
+        warnings.push({ type: 'negative', text: `DTR très long (${phases.devPct.toFixed(0)}%). Risque de perte de complexité aromatique et de notes d'origine.` });
+      }
+      if (phases.maillardPct < 20) {
+        warnings.push({ type: 'insight', text: `Phase de Maillard courte (${phases.maillardPct.toFixed(0)}%). Moins de développement de sucres caramélisés.` });
+      }
+    }
+
+    // RoR pattern warnings
+    for (const pattern of rorPatterns) {
+      if (pattern.type === 'crash') {
+        warnings.push({ type: 'negative', text: `RoR crash détecté à ${formatTime(pattern.time)} (chute de ${pattern.magnitude.toFixed(1)}°C/min). Risque de goût baked — plat, pain, carton.` });
+      } else if (pattern.type === 'flick') {
+        warnings.push({ type: 'negative', text: `RoR flick détecté à ${formatTime(pattern.time)} (rebond de +${pattern.magnitude.toFixed(1)}°C/min). Réduire la chaleur plus tôt avant le first crack.` });
+      } else if (pattern.type === 'stall') {
+        warnings.push({ type: 'negative', text: `RoR plateau détecté à ${formatTime(pattern.time)} (stagnation pendant ${pattern.duration.toFixed(0)}s). Risque de baking — les réactions enzymatiques ralentissent.` });
+      }
+    }
+
+    return { phases, rorPatterns, events, warnings };
+  }
+
+  function _detectEvents(time, bt, params) {
+    const events = {};
+    const totalTime = time[time.length - 1];
+
+    // Turning point: lowest BT in first 30% of roast
+    const searchEnd = Math.floor(bt.length * 0.3);
+    let tpIdx = 0;
+    for (let i = 1; i < searchEnd; i++) {
+      if (bt[i] < bt[tpIdx]) tpIdx = i;
+    }
+    events.turningPoint = { time: time[tpIdx], temp: bt[tpIdx], idx: tpIdx };
+
+    // Drying end / yellowing: ~150°C (adjustable)
+    const dryingTemp = 150;
+    for (let i = tpIdx; i < bt.length; i++) {
+      if (bt[i] >= dryingTemp) {
+        events.dryingEnd = { time: time[i], temp: bt[i], idx: i };
+        break;
+      }
+    }
+
+    // First crack from params or detect from curve (~195°C)
+    if (params?.fcTime) {
+      const fcSec = parseTimeStr(params.fcTime);
+      if (fcSec != null) {
+        // Find closest time index
+        let fcIdx = 0;
+        for (let i = 0; i < time.length; i++) {
+          if (Math.abs(time[i] - fcSec) < Math.abs(time[fcIdx] - fcSec)) fcIdx = i;
+        }
+        events.firstCrack = { time: fcSec, temp: params.fcTemp || bt[fcIdx], idx: fcIdx };
+      }
+    }
+
+    if (!events.firstCrack) {
+      // Estimate: first time BT crosses 195°C
+      for (let i = 0; i < bt.length; i++) {
+        if (bt[i] >= 195) {
+          events.firstCrack = { time: time[i], temp: bt[i], idx: i };
+          break;
+        }
+      }
+    }
+
+    // Drop = last data point (or from params)
+    if (params?.dropTime) {
+      const dropSec = parseTimeStr(params.dropTime);
+      if (dropSec != null) {
+        events.drop = { time: dropSec, temp: params.dropTemp || bt[bt.length - 1] };
+      }
+    }
+    if (!events.drop) {
+      events.drop = { time: totalTime, temp: bt[bt.length - 1] };
+    }
+
+    return events;
+  }
+
+  function _computePhases(time, bt, events) {
+    const totalTime = events.drop?.time || time[time.length - 1];
+    if (totalTime <= 0) return null;
+
+    const tpTime = events.turningPoint?.time || 0;
+    const dryEndTime = events.dryingEnd?.time || null;
+    const fcTime = events.firstCrack?.time || null;
+
+    if (!dryEndTime || !fcTime) return null;
+
+    const dryingDuration = dryEndTime - tpTime;
+    const maillardDuration = fcTime - dryEndTime;
+    const devDuration = totalTime - fcTime;
+
+    return {
+      drying: { start: tpTime, end: dryEndTime, duration: dryingDuration },
+      maillard: { start: dryEndTime, end: fcTime, duration: maillardDuration },
+      development: { start: fcTime, end: totalTime, duration: devDuration },
+      dryingPct: (dryingDuration / totalTime) * 100,
+      maillardPct: (maillardDuration / totalTime) * 100,
+      devPct: (devDuration / totalTime) * 100,
+      totalTime,
+    };
+  }
+
+  function _analyzeRoR(time, ror, events) {
+    if (!ror || ror.length < 20) return [];
+
+    const patterns = [];
+    const fcTime = events.firstCrack?.time || Infinity;
+
+    // Smooth RoR with 5-point moving average for analysis
+    const smoothed = [];
+    const window = 5;
+    for (let i = 0; i < ror.length; i++) {
+      const start = Math.max(0, i - Math.floor(window / 2));
+      const end = Math.min(ror.length, i + Math.ceil(window / 2));
+      let sum = 0;
+      for (let j = start; j < end; j++) sum += ror[j];
+      smoothed.push(sum / (end - start));
+    }
+
+    // Skip early phase (before turning point stabilizes)
+    const startIdx = events.turningPoint ? events.turningPoint.idx + 5 : 10;
+
+    for (let i = startIdx + 1; i < smoothed.length - 1; i++) {
+      const prev = smoothed[i - 1];
+      const curr = smoothed[i];
+      const next = smoothed[i + 1];
+      const t = time[i];
+
+      // Crash: RoR drops > 3°C/min in a short span
+      if (prev - curr > 3 && t > 60) {
+        patterns.push({
+          type: 'crash',
+          time: t,
+          idx: i,
+          magnitude: prev - curr,
+        });
+      }
+
+      // Flick: RoR increases after declining (especially near FC)
+      if (curr > prev && prev < smoothed[Math.max(0, i - 2)] && curr - prev > 1.5 && t > 120) {
+        patterns.push({
+          type: 'flick',
+          time: t,
+          idx: i,
+          magnitude: curr - prev,
+        });
+      }
+
+      // Stall: RoR nearly flat (< 0.5°C/min change) for extended period
+      if (Math.abs(curr - prev) < 0.3 && Math.abs(next - curr) < 0.3 && curr > 0 && curr < 4) {
+        // Check if this is a prolonged stall
+        let stallEnd = i;
+        while (stallEnd < smoothed.length - 1 && Math.abs(smoothed[stallEnd + 1] - smoothed[stallEnd]) < 0.5) {
+          stallEnd++;
+        }
+        const stallDuration = time[stallEnd] - time[i];
+        if (stallDuration > 30) {
+          patterns.push({
+            type: 'stall',
+            time: t,
+            idx: i,
+            duration: stallDuration,
+            magnitude: curr,
+          });
+          i = stallEnd; // Skip past stall
+        }
+      }
+    }
+
+    // Deduplicate nearby patterns of same type
+    const deduped = [];
+    for (const p of patterns) {
+      const last = deduped[deduped.length - 1];
+      if (last && last.type === p.type && Math.abs(last.time - p.time) < 30) continue;
+      deduped.push(p);
+    }
+
+    return deduped;
+  }
+
+  return { parse, formatTime, parseTimeStr, analyzeCurve };
 })();

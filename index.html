@@ -218,7 +218,7 @@
                   <input type="number" id="roast-dtr" step="0.1" placeholder="17.5">
                 </div>
               </div>
-              <div class="form-row">
+              <div class="form-row form-row-4">
                 <div class="form-group">
                   <label for="roast-weight-loss">Perte de poids (%)</label>
                   <input type="number" id="roast-weight-loss" step="0.1" placeholder="13.5">
@@ -226,6 +226,14 @@
                 <div class="form-group">
                   <label for="roast-total-time">Temps total (mm:ss)</label>
                   <input type="text" id="roast-total-time" placeholder="11:30">
+                </div>
+                <div class="form-group">
+                  <label for="roast-agtron-whole">Agtron grain entier</label>
+                  <input type="number" id="roast-agtron-whole" step="1" min="0" max="100" placeholder="65">
+                </div>
+                <div class="form-group">
+                  <label for="roast-agtron-ground">Agtron moulu</label>
+                  <input type="number" id="roast-agtron-ground" step="1" min="0" max="100" placeholder="55">
                 </div>
               </div>
             </fieldset>
@@ -498,6 +506,18 @@
             <canvas id="chart-curves-overlay"></canvas>
           </div>
 
+          <!-- Phases de torréfaction -->
+          <div class="analysis-panel panel-wide">
+            <h3>Phases de torréfaction</h3>
+            <div id="phases-grid" class="phases-grid"></div>
+          </div>
+
+          <!-- Alertes courbe (RoR patterns) -->
+          <div class="analysis-panel panel-wide" id="panel-curve-warnings" style="display:none">
+            <h3>Alertes courbe</h3>
+            <div id="curve-warnings" class="conclusions-content"></div>
+          </div>
+
           <!-- Radar sensoriel comparatif -->
           <div class="analysis-panel">
             <h3>Profil sensoriel comparé</h3>
@@ -531,6 +551,13 @@
           <div class="analysis-panel panel-wide">
             <h3>Conclusions</h3>
             <div id="analysis-conclusions" class="conclusions-content"></div>
+          </div>
+
+          <!-- Export -->
+          <div class="analysis-panel panel-wide" style="text-align:center;padding:1.5rem">
+            <button class="btn btn-primary" id="btn-export-pdf" style="font-size:1rem;padding:0.75rem 2rem">
+              Exporter le rapport (PDF)
+            </button>
           </div>
         </div>
       </div>

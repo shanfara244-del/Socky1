@@ -742,6 +742,84 @@ legend {
 
 .empty-state small { display: block; margin-top: 0.5rem; }
 
+/* ===== PHASE BARS ===== */
+.phases-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.phase-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.phase-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  min-width: 100px;
+  text-align: right;
+}
+
+.phase-bar-container {
+  flex: 1;
+  display: flex;
+  height: 28px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--bg-input);
+}
+
+.phase-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-inverse);
+  transition: width 0.3s;
+  min-width: 0;
+}
+
+.phase-segment.drying { background: #5d9ac7; }
+.phase-segment.maillard { background: #d4915e; }
+.phase-segment.development { background: #c75d5d; }
+
+.phase-score {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 50px;
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.phase-legend {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.phase-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.phase-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.phase-legend-dot.drying { background: #5d9ac7; }
+.phase-legend-dot.maillard { background: #d4915e; }
+.phase-legend-dot.development { background: #c75d5d; }
+
 /* ===== UTILITIES ===== */
 .hidden { display: none !important; }
 

@@ -321,35 +321,92 @@ const App = (() => {
     refreshRoastsList();
   }
 
+  function _loadCurveData(text) {
+    const result = CurveParser.parseAuto(text);
+
+    if (result.errors.length > 0 && result.bt.length === 0) {
+      alert('Erreur de parsing: ' + result.errors.join(', '));
+      return;
+    }
+
+    pendingCurveData = result;
+
+    const preview = document.getElementById('curve-preview');
+    preview.classList.remove('hidden');
+    Charts.renderCurvePreview('curve-preview-chart', result);
+
+    const info = document.getElementById('curve-preview-info');
+    const btMin = Math.min(...result.bt).toFixed(0);
+    const btMax = Math.max(...result.bt).toFixed(0);
+    const source = result.meta?.source === 'cropster-json' ? ' · Cropster JSON' : '';
+    info.textContent = `${result.bt.length} points · BT ${btMin}–${btMax}°C · Durée ${CurveParser.formatTime(result.time[result.time.length - 1])}${source}`;
+
+    if (result.gas && result.gas.some(v => v > 0)) {
+      info.textContent += ' · Gas';
+    }
+
+    if (result.errors.length > 0) {
+      info.textContent += ` · ⚠ ${result.errors.join(', ')}`;
+    }
+
+    // Auto-fill roast params from curve if empty
+    _autoFillFromCurve(result);
+  }
+
+  function _autoFillFromCurve(result) {
+    if (!result || result.bt.length === 0) return;
+
+    const chargeEl = document.getElementById('roast-charge-temp');
+    const totalTimeEl = document.getElementById('roast-total-time');
+
+    // Charge temp = first BT value (if not already filled)
+    if (chargeEl && !chargeEl.value && result.bt[0] > 50) {
+      chargeEl.value = result.bt[0].toFixed(1);
+    }
+
+    // Total time from curve duration
+    if (totalTimeEl && !totalTimeEl.value && result.time.length > 0) {
+      totalTimeEl.value = CurveParser.formatTime(result.time[result.time.length - 1]);
+    }
+
+    // Drop temp = last BT value
+    const dropTempEl = document.getElementById('roast-drop-temp');
+    if (dropTempEl && !dropTempEl.value) {
+      dropTempEl.value = result.bt[result.bt.length - 1].toFixed(1);
+    }
+
+    // Turning point: lowest BT in first 30%
+    const tpEl = document.getElementById('roast-turning-point');
+    if (tpEl && !tpEl.value) {
+      const searchEnd = Math.floor(result.bt.length * 0.3);
+      let tpVal = result.bt[0];
+      for (let i = 1; i < searchEnd; i++) {
+        if (result.bt[i] < tpVal) tpVal = result.bt[i];
+      }
+      if (tpVal < result.bt[0]) {
+        tpEl.value = tpVal.toFixed(1);
+      }
+    }
+  }
+
   function handleCurveFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = CurveParser.parse(e.target.result);
-
-      if (result.errors.length > 0 && result.bt.length === 0) {
-        alert('Erreur de parsing: ' + result.errors.join(', '));
-        return;
-      }
-
-      pendingCurveData = result;
-
-      const preview = document.getElementById('curve-preview');
-      preview.classList.remove('hidden');
-      Charts.renderCurvePreview('curve-preview-chart', result);
-
-      const info = document.getElementById('curve-preview-info');
-      const btMin = Math.min(...result.bt).toFixed(0);
-      const btMax = Math.max(...result.bt).toFixed(0);
-      info.textContent = `${result.bt.length} points · BT ${btMin}–${btMax}°C · Durée ${CurveParser.formatTime(result.time[result.time.length - 1])}`;
-
-      if (result.errors.length > 0) {
-        info.textContent += ` · ⚠ ${result.errors.join(', ')}`;
-      }
-    };
+    reader.onload = (e) => _loadCurveData(e.target.result);
     reader.readAsText(file);
+  }
+
+  function handleCurvePaste() {
+    const textarea = document.getElementById('roast-curve-paste');
+    const text = textarea?.value?.trim();
+    if (!text) {
+      alert('Collez le JSON Cropster dans le champ ci-dessus.');
+      return;
+    }
+    _loadCurveData(text);
+    textarea.value = '';
   }
 
   // ===== CUPPING =====
@@ -566,6 +623,7 @@ const App = (() => {
     document.getElementById('btn-cancel-roast').addEventListener('click', () => document.getElementById('modal-roast').classList.add('hidden'));
     document.getElementById('form-roast').addEventListener('submit', (e) => { e.preventDefault(); saveRoastForm(); });
     document.getElementById('roast-curve-file').addEventListener('change', handleCurveFileUpload);
+    document.getElementById('btn-parse-paste').addEventListener('click', handleCurvePaste);
 
     // Cupping form
     document.getElementById('btn-new-cupping').addEventListener('click', () => openCuppingModal());

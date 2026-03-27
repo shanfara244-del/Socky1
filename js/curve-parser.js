@@ -1,15 +1,11 @@
 'use strict';
 
 /**
- * CurveParser — Parse Cropster CSV exports into structured roast curve data
+ * CurveParser — Parse Cropster exports into structured roast curve data
  *
- * Cropster CSV typical structure:
- * - Header rows with metadata (batch, date, etc.)
- * - Data columns: Time, BT (Bean Temp), ET (Env Temp), optionally RoR, drum speed, etc.
- * - Time can be in seconds or mm:ss format
- * - Temperatures in °C or °F
- *
- * This parser is flexible: it tries to detect columns by header names.
+ * Supports:
+ * - Cropster JSON (from browser DevTools / processingCurves endpoint)
+ * - Cropster CSV exports
  */
 const CurveParser = (() => {
 
@@ -437,5 +433,198 @@ const CurveParser = (() => {
     return deduped;
   }
 
-  return { parse, formatTime, parseTimeStr, analyzeCurve };
+  // ===== CROPSTER JSON PARSER =====
+
+  /**
+   * Detect if text is Cropster JSON (from DevTools / processingCurves endpoint)
+   */
+  function isCropsterJSON(text) {
+    try {
+      const obj = JSON.parse(text);
+      return obj.data && Array.isArray(obj.data) && obj.data.some(d => d.type === 'processingCurves');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Parse Cropster JSON API response (processingCurves)
+   * @param {string} jsonText - Raw JSON from Cropster DevTools
+   * @returns {object} { time[], bt[], et[], ror[], gas[], meta, errors[] }
+   */
+  function parseCropsterJSON(jsonText) {
+    const errors = [];
+    let data;
+
+    try {
+      const parsed = JSON.parse(jsonText);
+      data = parsed.data;
+    } catch (e) {
+      return { time: [], bt: [], et: [], ror: [], gas: [], meta: {}, errors: ['JSON invalide'] };
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return { time: [], bt: [], et: [], ror: [], gas: [], meta: {}, errors: ['Pas de données processingCurves'] };
+    }
+
+    // Map curve names to our internal names
+    const CURVE_MAP = {
+      beanTemperature: 'bt',
+      exhaustTemperature: 'et',
+      inletTemperature: 'et',
+      drumTemperature: 'et',
+      gasControl: 'gas',
+      gas: 'gas',
+      airflow: 'airflow',
+      drumSpeed: 'drumSpeed',
+      drumPressure: 'drumPressure',
+    };
+
+    const curves = {};
+    const meta = {};
+
+    for (const item of data) {
+      if (item.type !== 'processingCurves') continue;
+      const attrs = item.attributes;
+      if (!attrs || !attrs.values || !attrs.name) continue;
+
+      const internalName = CURVE_MAP[attrs.name] || attrs.name;
+
+      // Extract processing ID for meta
+      if (item.relationships?.processing?.data?.id) {
+        meta.processingId = item.relationships.processing.data.id;
+      }
+
+      // Time in Cropster JSON is in milliseconds → convert to seconds
+      const values = attrs.values;
+      const timeArr = values.map(v => v.time / 1000);
+      const valArr = values.map(v => v.value);
+
+      curves[internalName] = { time: timeArr, values: valArr, unit: attrs.unit };
+    }
+
+    if (!curves.bt) {
+      return { time: [], bt: [], et: [], ror: [], gas: [], meta, errors: ['Pas de courbe beanTemperature trouvée'] };
+    }
+
+    const time = curves.bt.time;
+    const bt = curves.bt.values;
+
+    // ET: use if available and has non-zero values
+    let et = [];
+    if (curves.et && curves.et.values.some(v => v !== 0)) {
+      // Interpolate to match BT time points if needed
+      et = _interpolateToTimeline(time, curves.et.time, curves.et.values);
+    }
+
+    // Gas: interpolate sparse data to BT timeline
+    let gas = [];
+    if (curves.gas && curves.gas.values.some(v => v !== 0)) {
+      gas = _interpolateToTimeline(time, curves.gas.time, curves.gas.values);
+    }
+
+    // Calculate RoR from BT
+    const ror = [];
+    for (let i = 0; i < bt.length; i++) {
+      if (i === 0) {
+        ror.push(0);
+      } else {
+        const dt = time[i] - time[i - 1];
+        if (dt > 0) {
+          ror.push(((bt[i] - bt[i - 1]) / dt) * 60);
+        } else {
+          ror.push(0);
+        }
+      }
+    }
+
+    meta.source = 'cropster-json';
+    meta.duration = time[time.length - 1];
+    meta.durationFormatted = formatTime(meta.duration);
+
+    if (bt.length < 3) {
+      errors.push('Trop peu de points de données');
+    }
+
+    return { time, bt, et, ror, gas, meta, errors };
+  }
+
+  /**
+   * Parse Cropster processingMeasures JSON
+   * @param {string} jsonText - Raw JSON from processingMeasures endpoint
+   * @returns {object} key-value pairs of measure names to values
+   */
+  function parseCropsterMeasures(jsonText) {
+    try {
+      const parsed = JSON.parse(jsonText);
+      if (!parsed.data || !Array.isArray(parsed.data)) return {};
+
+      const measures = {};
+      for (const item of parsed.data) {
+        if (item.type !== 'processingMeasures') continue;
+        const attrs = item.attributes;
+        if (!attrs?.measure || !attrs.name) continue;
+
+        measures[attrs.name] = {
+          value: attrs.measure.amount,
+          unit: attrs.measure.unit,
+        };
+      }
+      return measures;
+    } catch {
+      return {};
+    }
+  }
+
+  /**
+   * Interpolate sparse curve data to match a target timeline
+   */
+  function _interpolateToTimeline(targetTime, sourceTime, sourceValues) {
+    if (sourceTime.length === 0) return targetTime.map(() => 0);
+    if (sourceTime.length === targetTime.length &&
+        sourceTime.every((t, i) => t === targetTime[i])) {
+      return [...sourceValues];
+    }
+
+    const result = [];
+    let srcIdx = 0;
+
+    for (const t of targetTime) {
+      // Find surrounding source points
+      while (srcIdx < sourceTime.length - 1 && sourceTime[srcIdx + 1] <= t) {
+        srcIdx++;
+      }
+
+      if (srcIdx >= sourceTime.length - 1) {
+        result.push(sourceValues[sourceValues.length - 1]);
+      } else if (t <= sourceTime[0]) {
+        result.push(sourceValues[0]);
+      } else {
+        // Linear interpolation
+        const t0 = sourceTime[srcIdx];
+        const t1 = sourceTime[srcIdx + 1];
+        const v0 = sourceValues[srcIdx];
+        const v1 = sourceValues[srcIdx + 1];
+        const ratio = (t - t0) / (t1 - t0);
+        result.push(v0 + ratio * (v1 - v0));
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Auto-detect format and parse accordingly
+   * @param {string} text - CSV or JSON content
+   * @returns {object} parsed curve data
+   */
+  function parseAuto(text) {
+    const trimmed = text.trim();
+    if (trimmed.startsWith('{') && isCropsterJSON(trimmed)) {
+      return parseCropsterJSON(trimmed);
+    }
+    return parse(trimmed);
+  }
+
+  return { parse, parseAuto, parseCropsterJSON, parseCropsterMeasures, isCropsterJSON, formatTime, parseTimeStr, analyzeCurve };
 })();

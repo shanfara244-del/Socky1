@@ -241,9 +241,14 @@
             <fieldset class="fieldset-curve">
               <legend>Courbe Cropster</legend>
               <div class="form-group">
-                <label for="roast-curve-file">Importer un fichier CSV Cropster</label>
-                <input type="file" id="roast-curve-file" accept=".csv,.txt">
-                <small class="form-hint">Export Cropster au format CSV (colonnes: Time, BT, ET, RoR)</small>
+                <label for="roast-curve-file">Importer un fichier (CSV ou JSON)</label>
+                <input type="file" id="roast-curve-file" accept=".csv,.txt,.json">
+                <small class="form-hint">CSV Cropster ou fichier JSON sauvegardé</small>
+              </div>
+              <div class="form-group">
+                <label for="roast-curve-paste">Ou coller le JSON Cropster (depuis DevTools)</label>
+                <textarea id="roast-curve-paste" rows="3" placeholder='Ouvrir DevTools (F12) → Network → processingCurves → Response → coller ici'></textarea>
+                <button type="button" class="btn btn-sm btn-secondary" id="btn-parse-paste" style="margin-top:0.5rem">Charger le JSON</button>
               </div>
               <div id="curve-preview" class="curve-preview hidden">
                 <canvas id="curve-preview-chart"></canvas>

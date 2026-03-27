@@ -135,8 +135,27 @@
     <section id="view-roasts" class="view">
       <div class="view-header">
         <h2>Torréfactions</h2>
-        <button class="btn btn-primary" id="btn-add-roast">+ Nouvelle torréfaction</button>
+        <div style="display:flex;gap:0.5rem">
+          <button class="btn btn-secondary btn-sm" id="btn-bookmarklet-help" title="Comment importer depuis Cropster">? Cropster</button>
+          <button class="btn btn-primary" id="btn-add-roast">+ Nouvelle torréfaction</button>
+        </div>
       </div>
+
+      <!-- Bookmarklet help -->
+      <div id="bookmarklet-help" class="panel hidden" style="margin-bottom:1rem">
+        <h3>Importer depuis Cropster en 2 clics</h3>
+        <ol style="margin:0.75rem 0;padding-left:1.5rem;line-height:2;color:var(--text-secondary);font-size:0.9rem">
+          <li>Glissez ce bouton dans votre <strong>barre de favoris</strong> :
+            <a id="bookmarklet-link" href="#" class="btn btn-sm btn-primary" style="cursor:grab;margin-left:0.5rem" draggable="true">Socky1 → Cropster</a>
+          </li>
+          <li>Ouvrez un <strong>roast dans Cropster</strong> (c-sar.cropster.com)</li>
+          <li>Cliquez sur le favori <strong>"Socky1 → Cropster"</strong></li>
+          <li>Un fichier <strong>.json</strong> se télécharge automatiquement</li>
+          <li>Importez-le ici : <strong>+ Nouvelle torréfaction → Importer fichier</strong></li>
+        </ol>
+        <p style="font-size:0.8rem;color:var(--text-muted)">Le bookmarklet utilise votre session Cropster active. Pas besoin d'API payante.</p>
+      </div>
+
       <div id="roasts-list" class="cards-grid">
         <p class="empty-state">Aucune torréfaction enregistrée.</p>
       </div>

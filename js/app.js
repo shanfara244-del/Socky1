@@ -387,6 +387,24 @@ const App = (() => {
         tpEl.value = tpVal.toFixed(1);
       }
     }
+
+    // Auto-fill from Cropster measures (bookmarklet export)
+    if (result.meta?.measures) {
+      const m = result.meta.measures;
+      if (m.chargeTemperature && chargeEl && !chargeEl.value) {
+        chargeEl.value = m.chargeTemperature.value;
+      }
+      if (m.endTemperature) {
+        const dropEl = document.getElementById('roast-drop-temp');
+        if (dropEl && !dropEl.value) dropEl.value = m.endTemperature.value;
+      }
+    }
+
+    // Auto-fill date from meta
+    if (result.meta?.date) {
+      const dateEl = document.getElementById('roast-date');
+      if (dateEl && !dateEl.value) dateEl.value = result.meta.date;
+    }
   }
 
   function handleCurveFileUpload(event) {
@@ -568,6 +586,20 @@ const App = (() => {
     return val != null ? val : '';
   }
 
+  function _initBookmarklet() {
+    const link = document.getElementById('bookmarklet-link');
+    if (!link) return;
+
+    // Inline bookmarklet — minified version of cropster-bookmarklet.js
+    const bookmarklet = `javascript:(function(){'use strict';if(!window.location.hostname.includes('cropster.com')){alert("Socky1: Ouvrez cette page sur Cropster d'abord.");return}let p=null;const m=window.location.pathname.match(/processings\\/([a-zA-Z0-9]+)/);if(m)p=m[1];if(!p){const h=window.location.hash.match(/processings\\/([a-zA-Z0-9]+)/);if(h)p=h[1]}if(!p){p=prompt("Socky1: ID du roast?");if(!p)return}const b='https://c-sar.cropster.com/api/v2',h={Accept:'application/vnd.api+json;charset=UTF-8'};const o=document.createElement('div');o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:system-ui';o.innerHTML='<div style="background:%23231e19;color:%23f0e6dc;padding:2rem 3rem;border-radius:12px;text-align:center;border:2px solid %23d4915e"><h2 style="color:%23d4915e;margin:0 0 .5rem">Socky1</h2><p id=socky1-s>Chargement...</p></div>';document.body.appendChild(o);const s=document.getElementById('socky1-s');Promise.all([fetch(b+'/processingCurves?filter[processingCurves][processing]='+p,{headers:h,credentials:'include'}).then(r=>r.json()).catch(()=>null),fetch(b+'/processingMeasures?filter[processingMeasures][processing]='+p,{headers:h,credentials:'include'}).then(r=>r.json()).catch(()=>null),fetch(b+'/processings/'+p,{headers:h,credentials:'include'}).then(r=>r.json()).catch(()=>null)]).then(([c,me,pr])=>{if(!c||!c.data||!c.data.length){alert('Socky1: Aucune courbe.');o.remove();return}const e={socky1Export:true,version:1,exportedAt:new Date().toISOString(),processingId:p,curves:c,measures:me,processing:pr};let f='socky1_'+p;if(pr&&pr.data&&pr.data.attributes&&pr.data.attributes.startDate)f='socky1_'+pr.data.attributes.startDate.split('T')[0]+'_'+p;const bl=new Blob([JSON.stringify(e)],{type:'application/json'}),u=URL.createObjectURL(bl),a=document.createElement('a');a.href=u;a.download=f+'.json';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);const n=c.data.find(x=>x.attributes&&x.attributes.name==='beanTemperature');s.textContent='Fichier téléchargé! '+(n?n.attributes.values.length+' points BT':'');setTimeout(()=>o.remove(),2500)}).catch(x=>{alert('Socky1: Erreur - '+x.message);o.remove()})})()`;
+
+    link.href = bookmarklet;
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      alert('Glissez ce bouton dans votre barre de favoris.\nNe cliquez pas dessus ici — il doit être utilisé depuis Cropster.');
+    });
+  }
+
   function _esc(str) {
     const el = document.createElement('span');
     el.textContent = str;
@@ -624,6 +656,12 @@ const App = (() => {
     document.getElementById('form-roast').addEventListener('submit', (e) => { e.preventDefault(); saveRoastForm(); });
     document.getElementById('roast-curve-file').addEventListener('change', handleCurveFileUpload);
     document.getElementById('btn-parse-paste').addEventListener('click', handleCurvePaste);
+
+    // Bookmarklet help
+    document.getElementById('btn-bookmarklet-help').addEventListener('click', () => {
+      document.getElementById('bookmarklet-help').classList.toggle('hidden');
+    });
+    _initBookmarklet();
 
     // Cupping form
     document.getElementById('btn-new-cupping').addEventListener('click', () => openCuppingModal());

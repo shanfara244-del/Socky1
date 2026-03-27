@@ -436,11 +436,14 @@ const CurveParser = (() => {
   // ===== CROPSTER JSON PARSER =====
 
   /**
-   * Detect if text is Cropster JSON (from DevTools / processingCurves endpoint)
+   * Detect if text is Cropster JSON (from DevTools or Socky1 bookmarklet export)
    */
   function isCropsterJSON(text) {
     try {
       const obj = JSON.parse(text);
+      // Socky1 bookmarklet export wraps curves in { socky1Export: true, curves: {...} }
+      if (obj.socky1Export && obj.curves) return true;
+      // Direct processingCurves response
       return obj.data && Array.isArray(obj.data) && obj.data.some(d => d.type === 'processingCurves');
     } catch {
       return false;
@@ -449,16 +452,27 @@ const CurveParser = (() => {
 
   /**
    * Parse Cropster JSON API response (processingCurves)
-   * @param {string} jsonText - Raw JSON from Cropster DevTools
+   * Accepts both direct API response and Socky1 bookmarklet export format
+   * @param {string} jsonText - Raw JSON
    * @returns {object} { time[], bt[], et[], ror[], gas[], meta, errors[] }
    */
   function parseCropsterJSON(jsonText) {
     const errors = [];
     let data;
+    let measures = null;
+    let processing = null;
 
     try {
       const parsed = JSON.parse(jsonText);
-      data = parsed.data;
+
+      // Handle Socky1 bookmarklet export wrapper
+      if (parsed.socky1Export && parsed.curves) {
+        data = parsed.curves.data;
+        if (parsed.measures?.data) measures = parsed.measures.data;
+        if (parsed.processing?.data) processing = parsed.processing.data;
+      } else {
+        data = parsed.data;
+      }
     } catch (e) {
       return { time: [], bt: [], et: [], ror: [], gas: [], meta: {}, errors: ['JSON invalide'] };
     }
@@ -541,6 +555,26 @@ const CurveParser = (() => {
     meta.source = 'cropster-json';
     meta.duration = time[time.length - 1];
     meta.durationFormatted = formatTime(meta.duration);
+
+    // Enrich meta from processing data (bookmarklet export)
+    if (processing?.attributes) {
+      const pa = processing.attributes;
+      if (pa.startDate) meta.date = pa.startDate.split('T')[0];
+      if (pa.batchName) meta.batch = pa.batchName;
+      if (pa.batchNumber) meta.batchNumber = pa.batchNumber;
+    }
+
+    // Enrich meta from measures data (bookmarklet export)
+    if (measures && Array.isArray(measures)) {
+      meta.measures = {};
+      for (const item of measures) {
+        if (item.type !== 'processingMeasures' || !item.attributes) continue;
+        const a = item.attributes;
+        if (a.measure && a.name) {
+          meta.measures[a.name] = { value: a.measure.amount, unit: a.measure.unit };
+        }
+      }
+    }
 
     if (bt.length < 3) {
       errors.push('Trop peu de points de données');

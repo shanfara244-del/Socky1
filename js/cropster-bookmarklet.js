@@ -22,18 +22,20 @@
   }
 
   // Extract processing ID from URL
-  // Cropster URLs look like: /app/roasting/processings/3qdqOX or /roasting/processings/3qdqOX/...
+  // Cropster URLs: /apps/roast/details/AKPdE8 or /roasting/processings/3qdqOX
   let processingId = null;
 
-  // Try URL path
-  const pathMatch = window.location.pathname.match(/processings\/([a-zA-Z0-9]+)/);
+  // Try URL path — multiple known patterns
+  const pathMatch = window.location.pathname.match(/\/apps\/roast\/details\/([a-zA-Z0-9]+)/)
+    || window.location.pathname.match(/processings\/([a-zA-Z0-9]+)/);
   if (pathMatch) {
     processingId = pathMatch[1];
   }
 
   // Try hash
   if (!processingId) {
-    const hashMatch = window.location.hash.match(/processings\/([a-zA-Z0-9]+)/);
+    const hashMatch = window.location.hash.match(/\/apps\/roast\/details\/([a-zA-Z0-9]+)/)
+      || window.location.hash.match(/processings\/([a-zA-Z0-9]+)/);
     if (hashMatch) processingId = hashMatch[1];
   }
 
